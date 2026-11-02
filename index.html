@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scrabble Companion</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scrabble">
+<meta name="theme-color" content="#1F5E4A">
+<style>
+:root{
+  --bg:#F3EEE3; --surface:#FFFFFF; --ink:#1E2A26; --muted:#5E6B66; --line:#D9D2C2;
+  --board:#1F5E4A; --board-ink:#FFFFFF;
+  --tile:#EAD7AE; --tile-edge:#C9B07E; --tile-ink:#2A2015;
+  --tw:#C8433A; --dw:#E7A3AB; --tl:#2F6FA8; --dl:#A9D0E8;
+  --ok:#2E7D4F; --bad:#C8433A;
+  --ok-bg:rgba(46,125,79,.15); --bad-bg:rgba(200,67,58,.15); --active-bg:rgba(31,94,74,.10); --pick-bg:rgba(47,111,168,.15);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#141917; --surface:#1D2421; --ink:#ECE8DE; --muted:#9AA6A1; --line:#2F3934;
+    --board:#2B7A60; --board-ink:#FFFFFF;
+    --tile:#D9C392; --tile-edge:#A88F5D; --tile-ink:#221A10;
+    --tw:#E0645A; --tl:#6FA6DA;
+    --ok:#5BC08A; --bad:#EF7A70;
+    --ok-bg:rgba(91,192,138,.18); --bad-bg:rgba(239,122,112,.18); --active-bg:rgba(43,122,96,.22); --pick-bg:rgba(111,166,218,.22);
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg)}
+body{color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  min-height:100vh;min-height:100dvh;-webkit-text-size-adjust:100%;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{max-width:1200px;margin:0 auto;padding:16px 16px 40px}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.tiles{display:flex;gap:4px;flex-wrap:wrap}
+.tile{position:relative;width:36px;height:36px;background:var(--tile);color:var(--tile-ink);border-radius:5px;
+  box-shadow:inset 0 -3px 0 var(--tile-edge);display:grid;place-items:center;font-weight:800;font-size:21px}
+.tile sub{position:absolute;right:4px;bottom:3px;font-size:9px;font-weight:700}
+.tiles .gap{width:10px}
+.controls{margin-left:auto;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h2{font-size:1.1rem;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.stack{display:flex;flex-direction:column;gap:16px}
+input{font:inherit;font-size:17px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px 14px;min-height:44px;touch-action:manipulation}
+button:disabled{opacity:.5}
+button.primary{background:var(--board);color:var(--board-ink);border-color:var(--board);font-weight:600}
+button.danger{color:var(--bad)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--tl);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row > input{flex:1}
+.players{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.player{display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--line);border-radius:8px}
+.player.active{border:2px solid var(--board);background:var(--active-bg)}
+.player.picking{border:2px solid var(--tl);background:var(--pick-bg)}
+.player .name{flex:1;font-weight:600;padding:6px 0;cursor:pointer}
+.player .score{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
+.player .x{border:none;background:none;color:var(--muted);min-width:44px}
+.pickmsg{margin:8px 0 0;font-weight:700;color:var(--tl);min-height:1.5em}
+.turnbox{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
+.turnname{font-weight:700;color:var(--board)}
+.timer{background:var(--board);color:var(--board-ink);border-color:var(--board)}
+.timer h2{color:var(--board-ink)}
+.clock{font-size:4.2rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:6px 0 12px}
+.clock.warn{color:var(--dw)}
+.clock.over{color:#fff;background:var(--tw);border-radius:8px;padding:4px 10px;display:inline-block;font-size:3rem}
+.timer button{background:rgba(255,255,255,.12);color:var(--board-ink);border-color:rgba(255,255,255,.35)}
+.timer input[type=number]{background:rgba(255,255,255,.12);color:var(--board-ink);border-color:rgba(255,255,255,.35);width:84px}
+.timer label{font-size:.95rem}
+.small{font-size:.92rem;color:var(--muted)}
+.results{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;min-height:0}
+.chip{padding:6px 10px;border-radius:6px;font-weight:700;letter-spacing:.03em}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)}
+.log{max-height:240px;overflow:auto;margin:0;padding:0;list-style:none;-webkit-overflow-scrolling:touch}
+.log li{padding:6px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{font-size:.85rem;color:var(--muted);font-weight:600}
+td.num{text-align:center;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+.empty{color:var(--muted);font-style:italic}
+.switch{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.switch input{-webkit-appearance:none;appearance:none;width:48px;height:28px;border-radius:14px;background:var(--line);position:relative;cursor:pointer;padding:0;border:none;transition:background .2s;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s}
+.switch input:checked{background:var(--board)}
+.switch input:checked::after{left:23px}
+[hidden]{display:none !important}
+#fireworks{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+.overlay{position:fixed;inset:0;display:none;place-items:center;z-index:60;background:rgba(0,0,0,.45);padding:16px}
+.overlay.show{display:grid}
+.card{background:var(--surface);color:var(--ink);border-radius:14px;padding:24px;max-width:460px;width:100%;text-align:center;border:3px solid var(--tile-edge)}
+.card .trophy{font-size:3.5rem;line-height:1}
+.card h3{font-size:1.7rem;margin:10px 0 6px}
+.card p{margin:0 0 6px}
+.card .row{justify-content:center;margin-top:16px}
+.loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:70;font-weight:600;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){ .switch input,.switch input::after{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="tiles" aria-label="Scrabble Companion">
+      <div class="tile">S<sub>1</sub></div><div class="tile">C<sub>3</sub></div><div class="tile">O<sub>1</sub></div><div class="tile">R<sub>1</sub></div><div class="tile">E<sub>1</sub></div>
+      <div class="gap"></div>
+      <div class="tile">K<sub>5</sub></div><div class="tile">E<sub>1</sub></div><div class="tile">E<sub>1</sub></div><div class="tile">P<sub>3</sub></div><div class="tile">E<sub>1</sub></div><div class="tile">R<sub>1</sub></div>
+    </div>
+    <div class="controls">
+      <label class="switch"><input type="checkbox" id="timerOn" onchange="toggleSetting('timerOn', this.checked)"> Turn timer</label>
+      <label class="switch"><input type="checkbox" id="wordOn" onchange="toggleSetting('wordOn', this.checked)"> Word check</label>
+      <button id="fsBtn" onclick="toggleFullscreen()">⛶ Full screen</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="panel">
+        <h2>Players</h2>
+        <div class="row">
+          <input id="newName" placeholder="Player name" list="knownNames" autocomplete="off">
+          <datalist id="knownNames"></datalist>
+          <button onclick="addPlayer()">Add player</button>
+        </div>
+        <div id="players" class="players"></div>
+        <button id="pickBtn" onclick="pickFirst()">🎲 Pick who goes first</button>
+        <p id="pickMsg" class="pickmsg" aria-live="polite"></p>
+
+        <div class="turnbox">
+          <p style="margin:0 0 8px"><span class="turnname" id="turnName">Add players to start</span></p>
+          <div class="row">
+            <input id="points" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Points" style="max-width:120px">
+            <input id="turnWord" placeholder="Word played (optional)" autocomplete="off" autocapitalize="characters">
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" onclick="addScore(false)">Add score</button>
+            <button onclick="addScore(true)">Pass</button>
+            <button onclick="undo()">Undo last turn</button>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="primary" onclick="endGame()">End game and save result</button>
+            <button class="danger" onclick="newGame()">Reset scores</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>This game</h2>
+        <ul id="log" class="log"></ul>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="panel timer" id="timerPanel">
+        <h2>Turn timer</h2>
+        <div id="clock" class="clock">3:00</div>
+        <div class="row">
+          <button id="startBtn" onclick="toggleTimer()">Start</button>
+          <button onclick="resetTimer()">Reset</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <label>Minutes per turn <input id="mins" type="number" inputmode="decimal" value="3" min="0.5" step="0.5" onchange="saveSettings();resetTimer()"></label>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label class="switch"><input type="checkbox" id="autoStart" onchange="saveSettings()"> Start next turn's timer automatically</label>
+        </div>
+      </section>
+
+      <section class="panel" id="wordPanel">
+        <h2>Word check</h2>
+        <p id="dictStatus" class="small" style="margin-top:0"></p>
+        <div class="row">
+          <input id="checkWord" placeholder="One or more words" autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="characters">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="primary" id="checkBtn" onclick="checkWords()">Check</button>
+          <button onclick="clearCheck()">Clear</button>
+        </div>
+        <div id="checkResult" class="results"></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Head-to-head records</h2>
+      <div class="row">
+        <button onclick="backup()">Back up records</button>
+        <button onclick="document.getElementById('restoreFile').click()">Restore backup</button>
+        <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+        <button class="danger" onclick="clearRecords()">Clear all records</button>
+      </div>
+    </div>
+    <div class="scroll" style="margin-top:10px">
+      <table>
+        <thead><tr><th>Matchup</th><th>Wins</th><th>Ties</th><th>Wins</th><th>Games</th><th>Best score</th></tr></thead>
+        <tbody id="records"></tbody>
+      </table>
+    </div>
+    <h2 style="margin-top:20px">Player totals</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Player</th><th>Games</th><th>Wins</th><th>Average score</th><th>High score</th></tr></thead>
+        <tbody id="totals"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<canvas id="fireworks" hidden></canvas>
+
+<div id="winOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+  <div class="card">
+    <div class="trophy">🏆</div>
+    <h3 id="winTitle"></h3>
+    <p id="winDetail" class="small"></p>
+    <div class="row"><button class="primary" onclick="closeCelebration()">Start the next game</button></div>
+  </div>
+</div>
+
+<div id="askOverlay" class="overlay" role="dialog" aria-modal="true">
+  <div class="card">
+    <p id="askText" style="font-size:1.05rem"></p>
+    <div class="row">
+      <button id="askCancel">Cancel</button>
+      <button id="askOk" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- In-page dialogs (browser popups don't work in iPad home screen apps) ---------- */
+function ask(msg, okLabel, cancelLabel){
+  return new Promise(resolve => {
+    const ov = document.getElementById('askOverlay');
+    const ok = document.getElementById('askOk'), cancel = document.getElementById('askCancel');
+    document.getElementById('askText').textContent = msg;
+    ok.textContent = okLabel || 'OK';
+    cancel.hidden = cancelLabel === null;
+    cancel.textContent = cancelLabel || 'Cancel';
+    ov.classList.add('show'); ok.focus();
+    const done = val => { ov.classList.remove('show'); ok.onclick = cancel.onclick = null; resolve(val); };
+    ok.onclick = () => done(true);
+    cancel.onclick = () => done(false);
+  });
+}
+function tell(msg){ return ask(msg, 'OK', null); }
+
+/* ---------- State, saved on this device ---------- */
+function load(key, fallback){ try{ const v = localStorage.getItem('sc_' + key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
+function store(key, val){ try{ localStorage.setItem('sc_' + key, JSON.stringify(val)); }catch(e){} }
+
+let game = load('game', {players:[], turn:0, log:[]});
+let records = load('records', {});   // "A|B" -> {aWins,bWins,ties,best}
+let totals = load('totals', {});     // name -> {games,wins,points,high}
+let settings = Object.assign({mins:3, autoStart:false, timerOn:true, wordOn:false}, load('settings', {}));
+
+function queueSave(key, val){ store(key, val); }
+function saveAll(){ store('game', game); store('records', records); store('totals', totals); render(); }
+function saveSettings(){
+  settings.mins = parseFloat(document.getElementById('mins').value) || 3;
+  settings.autoStart = document.getElementById('autoStart').checked;
+  settings.timerOn = document.getElementById('timerOn').checked;
+  settings.wordOn = document.getElementById('wordOn').checked;
+  queueSave('settings', settings);
+}
+function toggleSetting(name, on){
+  settings[name] = on; saveSettings(); applySettings();
+}
+function applySettings(){
+  document.getElementById('timerPanel').hidden = !settings.timerOn;
+  document.getElementById('wordPanel').hidden = !settings.wordOn;
+  if(!settings.timerOn) resetTimer();
+  if(settings.wordOn && dictState === 'unknown') loadWordStatus();
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Players and scoring ---------- */
+async function addPlayer(){
+  const el = document.getElementById('newName');
+  const n = el.value.trim();
+  if(!n) return;
+  if(game.players.some(p => p.name.toLowerCase() === n.toLowerCase())){ await tell(n + ' is already in this game.'); return; }
+  game.players.push({name:n, score:0});
+  el.value = '';
+  saveAll();
+}
+async function removePlayer(i){
+  if(!await ask('Remove ' + game.players[i].name + ' from this game?', 'Remove')) return;
+  game.players.splice(i,1);
+  game.log = game.log.filter(l => l.player !== i).map(l => ({...l, player: l.player > i ? l.player-1 : l.player}));
+  if(game.turn >= game.players.length) game.turn = 0;
+  saveAll();
+}
+function setTurn(i){ game.turn = i; resetTimer(); saveAll(); }
+
+function addScore(pass){
+  if(!game.players.length) return;
+  const ptsEl = document.getElementById('points');
+  const pts = pass ? 0 : parseInt(ptsEl.value, 10);
+  if(!pass && isNaN(pts)){ ptsEl.focus(); return; }
+  const p = game.players[game.turn];
+  const word = document.getElementById('turnWord').value.trim().toUpperCase();
+  p.score += pts;
+  game.log.unshift({player:game.turn, pts, word, pass});
+  if(game.log.length > 120) game.log.length = 120;
+  game.turn = (game.turn + 1) % game.players.length;
+  ptsEl.value = ''; document.getElementById('turnWord').value = '';
+  resetTimer();
+  if(settings.autoStart) startTimer();
+  saveAll();
+}
+function undo(){
+  const last = game.log.shift();
+  if(!last) return;
+  if(game.players[last.player]) game.players[last.player].score -= last.pts;
+  game.turn = last.player < game.players.length ? last.player : 0;
+  resetTimer(); saveAll();
+}
+async function newGame(){
+  if(!await ask('Reset all scores to zero? Players stay, and nothing is saved to records.', 'Reset')) return;
+  game.players.forEach(p => p.score = 0); game.turn = 0; game.log = [];
+  document.getElementById('pickMsg').textContent = '';
+  resetTimer(); saveAll();
+}
+async function endGame(){
+  const ps = game.players;
+  if(ps.length < 2){ await tell('You need at least 2 players to save a result.'); return; }
+  if(!await ask('End this game and save the result to records?', 'End game')) return;
+  const top = Math.max(...ps.map(p => p.score));
+  ps.forEach(p => {
+    const t = totals[p.name] || (totals[p.name] = {games:0,wins:0,points:0,high:0});
+    t.games++; t.points += p.score; t.high = Math.max(t.high, p.score);
+    if(p.score === top) t.wins++;
+  });
+  for(let i=0;i<ps.length;i++) for(let j=i+1;j<ps.length;j++){
+    const [a,b] = [ps[i],ps[j]].sort((x,y) => x.name.localeCompare(y.name));
+    const key = a.name + '|' + b.name;
+    const r = records[key] || (records[key] = {aWins:0,bWins:0,ties:0,best:0});
+    if(a.score > b.score) r.aWins++; else if(b.score > a.score) r.bWins++; else r.ties++;
+    r.best = Math.max(r.best, a.score, b.score);
+  }
+  const winList = ps.filter(p => p.score === top).map(p => p.name);
+  const finalLine = [...ps].sort((x,y) => y.score - x.score).map(p => p.name + ' ' + p.score).join(', ');
+  celebrate(winList, top, finalLine);
+  ps.forEach(p => p.score = 0); game.turn = 0; game.log = [];
+  document.getElementById('pickMsg').textContent = '';
+  resetTimer(); saveAll();
+}
+async function clearRecords(){
+  if(!await ask('Delete all head-to-head records and player totals? This cannot be undone.', 'Delete')) return;
+  records = {}; totals = {}; saveAll();
+}
+async function backup(){
+  const data = JSON.stringify({app:'scrabble-companion', saved:new Date().toISOString(), records, totals}, null, 2);
+  const name = 'scrabble-records-' + new Date().toISOString().slice(0,10) + '.json';
+  const file = new File([data], name, {type:'application/json'});
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:'Scrabble records'}); return; }
+  }catch(e){ if(e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+document.getElementById('restoreFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    if(d.app !== 'scrabble-companion' || !d.records || !d.totals) throw new Error('bad file');
+    if(!await ask('Replace the records on this device with the backup from ' + (d.saved || 'that file').slice(0,10) + '?', 'Restore')) return;
+    records = d.records; totals = d.totals; saveAll();
+    tell('Records restored.');
+  }catch(err){ tell('That file is not a Scrabble Companion backup.'); }
+});
+
+/* ---------- Randomizer ---------- */
+let picking = -1;
+async function pickFirst(){
+  const n = game.players.length;
+  if(n < 2){ await tell('Add at least 2 players first.'); return; }
+  if(game.log.length && !await ask('Turns have already been played. Pick a new first player anyway?', 'Pick')) return;
+  const winner = crypto.getRandomValues(new Uint32Array(1))[0] % n;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const spins = reduce ? 0 : n * 3 + winner;
+  const btn = document.getElementById('pickBtn');
+  btn.disabled = true;
+  document.getElementById('pickMsg').textContent = 'Picking...';
+  let step = 0;
+  (function tick(){
+    picking = step % n; render();
+    if(step < spins){ step++; setTimeout(tick, 60 + step * 8); return; }
+    picking = -1; btn.disabled = false;
+    game.turn = winner; resetTimer(); saveAll();
+    document.getElementById('pickMsg').textContent = game.players[winner].name + ' goes first!';
+  })();
+}
+
+/* ---------- Rendering ---------- */
+function render(){
+  const pEl = document.getElementById('players');
+  pEl.innerHTML = game.players.length ? game.players.map((p,i) =>
+    `<div class="player ${picking===i?'picking':(picking<0&&i===game.turn?'active':'')}">
+       <span class="name" title="Make it ${esc(p.name)}'s turn" onclick="setTurn(${i})">${esc(p.name)}</span>
+       <span class="score">${p.score}</span>
+       <button class="x" aria-label="Remove ${esc(p.name)}" onclick="removePlayer(${i})">✕</button>
+     </div>`).join('') : '<p class="empty">No players yet. Add names above.</p>';
+
+  document.getElementById('turnName').textContent =
+    game.players.length ? game.players[game.turn].name + "'s turn" : 'Add players to start';
+
+  document.getElementById('log').innerHTML = game.log.length ? game.log.map(l => {
+    const n = game.players[l.player] ? game.players[l.player].name : '?';
+    return `<li>${esc(n)}: ${l.pass ? 'passed' : '+' + l.pts}${l.word ? ' for ' + esc(l.word) : ''}</li>`;
+  }).join('') : '<li class="empty">Turns will show up here.</li>';
+
+  const recKeys = Object.keys(records).sort();
+  document.getElementById('records').innerHTML = recKeys.length ? recKeys.map(k => {
+    const [a,b] = k.split('|'); const r = records[k];
+    return `<tr><td>${esc(a)} vs ${esc(b)}</td><td class="num">${esc(a)}: ${r.aWins}</td><td class="num">${r.ties}</td><td class="num">${esc(b)}: ${r.bWins}</td><td class="num">${r.aWins+r.bWins+r.ties}</td><td class="num">${r.best}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">Finish a game with "End game and save result" to start tracking.</td></tr>';
+
+  const names = Object.keys(totals).sort((x,y) => totals[y].wins - totals[x].wins || x.localeCompare(y));
+  document.getElementById('totals').innerHTML = names.length ? names.map(n => {
+    const t = totals[n];
+    return `<tr><td>${esc(n)}</td><td class="num">${t.games}</td><td class="num">${t.wins}</td><td class="num">${t.games ? Math.round(t.points/t.games) : 0}</td><td class="num">${t.high}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty">No finished games yet.</td></tr>';
+
+  document.getElementById('knownNames').innerHTML = Object.keys(totals).map(n => `<option value="${esc(n)}">`).join('');
+}
+
+/* ---------- Timer ---------- */
+let remaining = 0, timerId = null, beeped = false, audioCtx = null;
+function fmt(s){ const neg = s < 0; s = Math.abs(s); return (neg?'-':'') + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+function drawClock(){
+  const c = document.getElementById('clock');
+  c.textContent = remaining < 0 ? "Time's up " + fmt(remaining) : fmt(remaining);
+  c.className = 'clock' + (remaining < 0 ? ' over' : remaining <= 30 ? ' warn' : '');
+}
+function startTimer(){
+  if(timerId || !settings.timerOn) return;
+  unlockAudio();
+  timerId = setInterval(() => {
+    remaining--;
+    if(remaining === 0 && !beeped){ beep(); beeped = true; }
+    drawClock();
+  }, 1000);
+  document.getElementById('startBtn').textContent = 'Pause';
+}
+function pauseTimer(){ clearInterval(timerId); timerId = null; document.getElementById('startBtn').textContent = 'Start'; }
+function toggleTimer(){ timerId ? pauseTimer() : startTimer(); }
+function resetTimer(){ pauseTimer(); remaining = Math.round((settings.mins || 3) * 60); beeped = false; drawClock(); }
+// iPad only allows sound after a tap, so the audio is unlocked on the first Start.
+function unlockAudio(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){}
+}
+function beep(){
+  if(!audioCtx) return;
+  try{
+    [0, 0.35, 0.7].forEach(t => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.25, audioCtx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + t + 0.3);
+      o.start(audioCtx.currentTime + t); o.stop(audioCtx.currentTime + t + 0.3);
+    });
+  }catch(e){}
+}
+
+/* ---------- Word check (enable1.txt sits next to this page) ---------- */
+let dictState = 'unknown', dict = null;
+function loadWordStatus(){
+  dictState = 'loading';
+  document.getElementById('dictStatus').textContent = 'Loading word list...';
+  fetch('enable1.txt')
+    .then(r => { if(!r.ok) throw new Error(r.status); return r.text(); })
+    .then(text => {
+      dict = new Set(text.toUpperCase().split(/\r?\n/).map(w => w.trim()).filter(w => /^[A-Z]+$/.test(w)));
+      if(dict.size < 1000) throw new Error('too small');
+      dictState = 'ready';
+      document.getElementById('dictStatus').textContent = 'Word list ready: ' + dict.size.toLocaleString() + ' words.';
+    })
+    .catch(() => {
+      dict = null; dictState = 'unknown';
+      document.getElementById('dictStatus').textContent = 'Could not load enable1.txt. Make sure it is uploaded to the same GitHub folder as index.html.';
+    });
+}
+function checkWords(){
+  const out = document.getElementById('checkResult');
+  const words = document.getElementById('checkWord').value.toUpperCase().split(/[^A-Z]+/).filter(Boolean);
+  if(!words.length){ out.innerHTML = ''; return; }
+  if(!dict){ out.innerHTML = '<span class="small">The word list is not loaded yet.</span>'; if(dictState !== 'loading') loadWordStatus(); return; }
+  out.innerHTML = words.map(w => dict.has(w)
+    ? `<span class="chip ok">${esc(w)} ✓ valid</span>`
+    : `<span class="chip bad">${esc(w)} ✗ not valid</span>`).join('');
+}
+function clearCheck(){
+  document.getElementById('checkWord').value = '';
+  document.getElementById('checkResult').innerHTML = '';
+  document.getElementById('checkWord').focus();
+}
+
+/* ---------- Full screen ---------- */
+function isFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+async function toggleFullscreen(){
+  const el = document.documentElement;
+  try{
+    if(isFullscreen()){
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else if(el.requestFullscreen){
+      await el.requestFullscreen();
+    } else if(el.webkitRequestFullscreen){
+      el.webkitRequestFullscreen();
+    } else { throw new Error('unsupported'); }
+  }catch(e){
+    tell('Full screen isn\'t available in this browser tab. On iPad, tap Share in Safari, choose "Add to Home Screen", then open the app from that icon. It runs full screen from there.');
+  }
+}
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function updateFsBtn(){
+  if(standalone){ document.getElementById('fsBtn').hidden = true; return; } document.getElementById('fsBtn').textContent = isFullscreen() ? '⛶ Exit full screen' : '⛶ Full screen'; }
+document.addEventListener('fullscreenchange', updateFsBtn);
+document.addEventListener('webkitfullscreenchange', updateFsBtn);
+
+/* ---------- Celebration ---------- */
+function celebrate(winList, top, finalLine){
+  const tie = winList.length > 1;
+  document.getElementById('winTitle').textContent = tie
+    ? "It's a tie! Congratulations, " + winList.join(' and ') + '!'
+    : 'Congratulations, ' + winList[0] + '!';
+  document.getElementById('winDetail').textContent =
+    (tie ? 'Both with ' : 'You won with ') + top + ' points. Final scores: ' + finalLine + '.';
+  document.getElementById('winOverlay').classList.add('show');
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches) startFireworks();
+}
+function closeCelebration(){
+  document.getElementById('winOverlay').classList.remove('show');
+  stopFireworks();
+}
+
+let fwRaf = null, fwParticles = [], fwLaunch = null;
+function startFireworks(){
+  const cv = document.getElementById('fireworks');
+  cv.hidden = false;
+  const ctx = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; ctx.setTransform(dpr,0,0,dpr,0,0); };
+  size(); addEventListener('resize', size);
+  const colors = ['#C8433A','#E7A3AB','#2F6FA8','#A9D0E8','#EAD7AE','#F2C14E','#5BC08A'];
+  fwParticles = [];
+  const burst = () => {
+    const x = innerWidth * (0.15 + Math.random() * 0.7), y = innerHeight * (0.12 + Math.random() * 0.4);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    for(let i = 0; i < 60; i++){
+      const a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 4.5;
+      fwParticles.push({x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color});
+    }
+  };
+  burst(); burst();
+  fwLaunch = setInterval(burst, 450);
+  setTimeout(() => { clearInterval(fwLaunch); fwLaunch = null; }, 6000);
+  const frame = () => {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    fwParticles = fwParticles.filter(p => p.life > 0);
+    for(const p of fwParticles){
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.vx *= 0.985; p.vy *= 0.985; p.life -= 0.012;
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if(fwParticles.length || fwLaunch) fwRaf = requestAnimationFrame(frame); else stopFireworks();
+  };
+  cancelAnimationFrame(fwRaf); frame();
+}
+function stopFireworks(){
+  clearInterval(fwLaunch); fwLaunch = null; cancelAnimationFrame(fwRaf); fwParticles = [];
+  document.getElementById('fireworks').hidden = true;
+}
+
+/* ---------- Keyboard ---------- */
+document.getElementById('newName').addEventListener('keydown', e => { if(e.key === 'Enter') addPlayer(); });
+document.getElementById('points').addEventListener('keydown', e => { if(e.key === 'Enter') addScore(false); });
+document.getElementById('turnWord').addEventListener('keydown', e => { if(e.key === 'Enter') addScore(false); });
+document.getElementById('checkWord').addEventListener('keydown', e => { if(e.key === 'Enter') checkWords(); });
+addEventListener('keydown', e => { if(e.key === 'Escape') closeCelebration(); });
+
+/* ---------- Start ---------- */
+document.getElementById('mins').value = settings.mins;
+document.getElementById('autoStart').checked = settings.autoStart;
+document.getElementById('timerOn').checked = settings.timerOn;
+document.getElementById('wordOn').checked = settings.wordOn;
+resetTimer();
+applySettings();
+updateFsBtn();
+render();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
